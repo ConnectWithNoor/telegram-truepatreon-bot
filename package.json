@@ -1,0 +1,18 @@
+{
+  "name": "telegram-truepatreon-bot",
+  "version": "1.0.0",
+  "description": "A bot that keep a check over telegram group memebers",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "author": "Noor Muhammad",
+  "license": "ISC",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.40.0",
+    "patreon": "^0.4.1"
+  },
+  "devDependencies": {
+    "dotenv": "^8.2.0"
+  }
+}
