@@ -11,12 +11,12 @@ const urlencoded = require('body-parser/lib/types/urlencoded');
 const TelegramBot = require('node-telegram-bot-api');
 const app = require('express')();
 const patreon = require('patreon');
-const { format: formatUrl } = require('url');
 const mongoose = require('mongoose');
 
 const { InsertUser } = require('./util/functions');
+const { loginUrl } = require('./util/utilities');
 
-// // initilization
+// initilization
 app.use(json());
 app.use(urlencoded({ extended: true }));
 
@@ -24,24 +24,6 @@ const oAuthClient = patreon.oauth(
   process.env.PATREON_CLINET_ID,
   process.env.PATREON_CLIENT_SECRET
 );
-
-const loginUrl = formatUrl({
-  protocol: 'https',
-  host: 'patreon.com',
-  pathname: '/oauth2/authorize',
-  query: {
-    response_type: 'code',
-    client_id: process.env.PATREON_CLINET_ID,
-    redirect_uri: process.env.PATREON_REDIRECT_URL,
-    scope: [
-      'campaigns',
-      'campaigns.members',
-      'campaigns.members[email]',
-      'identity.memberships',
-    ],
-    state: 'chills',
-  },
-});
 
 // Bot
 const bot = new TelegramBot(process.env.BOT_TOEKN, { polling: true });
@@ -65,13 +47,10 @@ app.get('/api/redirect-url', (req, res) => {
     .getTokens(code, process.env.PATREON_REDIRECT_URL)
     .then((res) => {
       userDetails = res;
-      // token = access_token; // eslint-disable-line camelcase
       apiClient = patreon.patreon(userDetails.access_token);
-      // console.log('token', token);
       return apiClient('/current_user');
     })
     .then(async ({ store, rawJson }) => {
-      console.log('in current user');
       const { id } = rawJson.data;
       userDetails = {
         ...userDetails,
@@ -89,18 +68,31 @@ app.get('/api/redirect-url', (req, res) => {
       // const storeUsers = store
       //   .findAll('user')
       //   .map((user) => user.serialize().data);
+
       const storeCampaigns = store
         .findAll('campaign')
         .map((camp) => camp.serialize().data);
 
-      storeCampaigns.forEach((cam) => console.log(cam));
+      // const storePledge = store
+      //   .findAll('pledge')
+      //   .map((camp) => camp.serialize().data);
 
-      // bot.sendMessage(
-      //   msgId,
-      //   `You have Campaigns:
-
-      //   ${storeCampaigns.map((camp) => camp.attributes.name)}`
-      // );
+      bot.sendMessage(
+        msgId,
+        `Great. We have found following campaigns assosiated with your account.
+          please choose any one campaign from the following list:
+          
+      ${storeCampaigns.map((camp) => (
+        <a href={`${camp}`} alt={`${camp}`}>
+          <b>{`123 \n`}</b>
+        </a>
+      ))}`,
+        {
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        }
+      );
+      res.status(200).end();
     })
     .catch((err) => {
       console.log('err in currrent user', err);
