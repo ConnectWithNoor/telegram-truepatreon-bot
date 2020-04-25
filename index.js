@@ -48,14 +48,22 @@ app.get('/api/redirect-url', (req, res) => {
     .then((res) => {
       userDetails = res;
       apiClient = patreon.patreon(userDetails.access_token);
-      return apiClient('/current_user');
+      return apiClient('/current_user/campaigns');
     })
-    .then(async ({ store, rawJson }) => {
-      const { id } = rawJson.data;
+    .then(async ({ store }) => {
+      const creator = store
+        .findAll('user')
+        .map((user) => user.serialize().data);
+      const campaigns = store
+        .findAll('campaign')
+        .map((campaign) => campaign.serialize().data);
+
+      const { id } = creator[0];
       userDetails = {
         ...userDetails,
         id,
       };
+
       let user = await InsertUser(userDetails);
 
       if (!user.expiresIn * 1000 < Date.now()) {
@@ -63,40 +71,56 @@ app.get('/api/redirect-url', (req, res) => {
         // user = functionCall()
       }
 
-      bot.sendMessage(msgId, 'Congragulations, You have been verified');
+      await bot.sendMessage(msgId, 'Congragulations, You have been verified');
 
-      // const storeUsers = store
-      //   .findAll('user')
-      //   .map((user) => user.serialize().data);
-
-      const storeCampaigns = store
-        .findAll('campaign')
-        .map((camp) => camp.serialize().data);
-
-      // const storePledge = store
-      //   .findAll('pledge')
-      //   .map((camp) => camp.serialize().data);
-
-      bot.sendMessage(
+      await bot.sendMessage(
         msgId,
-        `Great. We have found following campaigns assosiated with your account.
-          please choose any one campaign from the following list:
-          
-      ${storeCampaigns.map((camp) => (
-        <a href={`${camp}`} alt={`${camp}`}>
-          <b>{`123 \n`}</b>
-        </a>
-      ))}`,
+        `Great. We have found following campaigns assosiated with your account. Please choose any one campaign from the following list:
+        ${campaigns.map(
+          (camp) =>
+            `<a href="${camp.attributes.cover_photo_url}" alt="${camp.attributes.name}"><b>${camp.attributes.name}</b></a>\n`
+        )}`,
         {
           parse_mode: 'HTML',
           disable_web_page_preview: true,
         }
       );
-      res.status(200).end();
+
+      // // const storeUsers = store
+      // //   .findAll('user')
+      // //   .map((user) => user.serialize().data);
+
+      // const storeCampaigns = store
+      //   .findAll('campaign')
+      //   .map((camp) => camp.serialize().data);
+
+      // // const storePledge = store
+      // //   .findAll('pledge')
+      // //   .map((camp) => camp.serialize().data);
+
+      res.redirect('/api/success');
     })
     .catch((err) => {
       console.log('err in currrent user', err);
+      bot.sendMessage(msgId, 'Something went wrong. Please try again ');
+      res.redirect('/api/fallback');
     });
+});
+
+// success page
+app.get('/api/success', (req, res) => {
+  res
+    .status(200)
+    .send(
+      'You have been verified. Please close this tab and proceed to the bot'
+    );
+});
+
+// fallback page
+app.get('/api/fallback', (req, res) => {
+  res
+    .status(200)
+    .send('Something went Wrong, Please close the tab and try again.');
 });
 
 mongoose
