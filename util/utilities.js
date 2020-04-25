@@ -11,3 +11,14 @@ exports.loginUrl = formatUrl({
     state: 'chills',
   },
 });
+
+exports.refreshTokenUrl = formatUrl({
+  protocol: 'https',
+  host: 'patreon.com',
+  pathname: '/oauth2/token',
+  query: {
+    grant_type: 'refresh_token',
+    client_id: process.env.PATREON_CLINET_ID,
+    client_secret: process.env.PATREON_CLIENT_SECRET,
+  },
+});

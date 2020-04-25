@@ -14,7 +14,8 @@ const patreon = require('patreon');
 const mongoose = require('mongoose');
 
 const { InsertUser } = require('./util/functions');
-const { loginUrl } = require('./util/utilities');
+const { loginUrl, refreshTokenUrl } = require('./util/utilities');
+const { successPage, fallbackPage } = require('./routes/index');
 
 // initilization
 app.use(json());
@@ -64,12 +65,7 @@ app.get('/api/redirect-url', (req, res) => {
         id,
       };
 
-      let user = await InsertUser(userDetails);
-
-      if (!user.expiresIn * 1000 < Date.now()) {
-        // TODO: refresh token. accessToken expired
-        // user = functionCall()
-      }
+      await InsertUser(userDetails);
 
       await bot.sendMessage(msgId, 'Congragulations, You have been verified');
 
@@ -85,19 +81,6 @@ app.get('/api/redirect-url', (req, res) => {
           disable_web_page_preview: true,
         }
       );
-
-      // // const storeUsers = store
-      // //   .findAll('user')
-      // //   .map((user) => user.serialize().data);
-
-      // const storeCampaigns = store
-      //   .findAll('campaign')
-      //   .map((camp) => camp.serialize().data);
-
-      // // const storePledge = store
-      // //   .findAll('pledge')
-      // //   .map((camp) => camp.serialize().data);
-
       res.redirect('/api/success');
     })
     .catch((err) => {
@@ -108,20 +91,10 @@ app.get('/api/redirect-url', (req, res) => {
 });
 
 // success page
-app.get('/api/success', (req, res) => {
-  res
-    .status(200)
-    .send(
-      'You have been verified. Please close this tab and proceed to the bot'
-    );
-});
+app.get('/api/success', successPage);
 
 // fallback page
-app.get('/api/fallback', (req, res) => {
-  res
-    .status(200)
-    .send('Something went Wrong, Please close the tab and try again.');
-});
+app.get('/api/fallback', fallbackPage);
 
 mongoose
   .connect(process.env.MONGODB, {

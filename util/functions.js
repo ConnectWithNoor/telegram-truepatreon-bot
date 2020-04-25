@@ -1,4 +1,5 @@
 const Token = require('../models/token');
+const refreshTokenUrl = require('./utilities');
 
 exports.InsertUser = async ({
   id,
