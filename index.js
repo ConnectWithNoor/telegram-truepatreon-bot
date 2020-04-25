@@ -6,20 +6,18 @@ let msgId = 862535021;
 let userDetails = {};
 
 // imports
-const json = require('body-parser/lib/types/json');
-const urlencoded = require('body-parser/lib/types/urlencoded');
+const bodyparser = require('body-parser');
 const TelegramBot = require('node-telegram-bot-api');
 const app = require('express')();
 const patreon = require('patreon');
 const mongoose = require('mongoose');
 
-const { InsertUser } = require('./util/functions');
-const { loginUrl, refreshTokenUrl } = require('./util/utilities');
+const { loginUrl, InsertUser } = require('./util/utilities');
 const { successPage, fallbackPage } = require('./routes/index');
 
 // initilization
-app.use(json());
-app.use(urlencoded({ extended: true }));
+app.use(bodyparser.json());
+app.use(bodyparser.urlencoded({ extended: true }));
 
 const oAuthClient = patreon.oauth(
   process.env.PATREON_CLINET_ID,
