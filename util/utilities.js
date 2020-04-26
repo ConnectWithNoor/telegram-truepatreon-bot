@@ -28,13 +28,31 @@ exports.InsertUser = async ({
   }
 };
 
+exports.getUserData = (store) => {
+  const creator = store
+    .findAll('user')
+    .map((user) => ({ creator: user.serialize().data }));
+
+  const campaigns = store.findAll('campaign').filter((campaign) => {
+    const temp = campaign.serialize().data;
+    // check below line
+    return temp.id === creator.id;
+  });
+
+  const pledge = store
+    .findAll('pledge')
+    .map((pledge) => pledge.serialize().data);
+
+  return [...creator, campaigns, pledge];
+};
+
 exports.loginUrl = formatUrl({
   protocol: 'https',
   host: 'patreon.com',
   pathname: '/oauth2/authorize',
   query: {
     response_type: 'code',
-    client_id: process.env.PATREON_CLINET_ID,
+    client_id: process.env.PATREON_CLINET_ID_NOOR,
     redirect_uri: process.env.PATREON_REDIRECT_URL,
     state: 'chills',
   },

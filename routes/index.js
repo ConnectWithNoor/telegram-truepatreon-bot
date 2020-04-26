@@ -1,5 +1,5 @@
 // success page
-exports.successPage = (req, res) => {
+exports.verifiedPage = (req, res) => {
   res
     .status(200)
     .send(

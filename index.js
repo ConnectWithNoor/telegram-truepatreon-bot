@@ -4,6 +4,7 @@ if (process.env.NODE_ENV !== 'production') {
 // Global variables
 let msgId = 862535021;
 let userDetails = {};
+let userPatreonDetails = {};
 
 // imports
 const bodyparser = require('body-parser');
@@ -12,84 +13,105 @@ const app = require('express')();
 const patreon = require('patreon');
 const mongoose = require('mongoose');
 
-const { loginUrl, InsertUser } = require('./util/utilities');
-const { successPage, fallbackPage } = require('./routes/index');
+const { loginUrl, InsertUser, getUserData } = require('./util/utilities');
+const { verifiedPage, fallbackPage } = require('./routes/index');
 
 // initilization
 app.use(bodyparser.json());
 app.use(bodyparser.urlencoded({ extended: true }));
 
 const oAuthClient = patreon.oauth(
-  process.env.PATREON_CLINET_ID,
-  process.env.PATREON_CLIENT_SECRET
+  process.env.PATREON_CLINET_ID_NOOR,
+  process.env.PATREON_CLIENT_SECRET_NOOR
 );
 
 // Bot
 const bot = new TelegramBot(process.env.BOT_TOEKN, { polling: true });
 bot.onText(/\/start/, (msg) => {
   msgId = msg.chat.id;
+
   bot.sendMessage(
     msgId,
-    `Welcome ${msg.chat.first_name}. Such a lovely day.
-    To enable me to work, please login with Patreon by <a href="${loginUrl}">Clicking Here.</a>`,
-    {
-      parse_mode: 'HTML',
-      disable_web_page_preview: true,
-    }
+    `Welcome ${msg.chat.first_name}, 
+
+with @TruePatreonbot you can get access to private patreon-only Telegram communities and create your own.
+
+Please press the button below to get started and verify your Patreon account`
   );
+
+  bot.sendMessage(msgId, `\u{1F447}`, {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: 'Click here to verify',
+            url: loginUrl,
+          },
+        ],
+      ],
+    },
+  });
 });
 
-// REDIRECT URL
-app.get('/api/redirect-url', (req, res) => {
+// APIs END POINTS
+
+// redirect-url
+app.get('/api/redirect-url', async (req, res) => {
   const { code } = req.query;
-  return oAuthClient
-    .getTokens(code, process.env.PATREON_REDIRECT_URL)
-    .then((res) => {
-      userDetails = res;
-      apiClient = patreon.patreon(userDetails.access_token);
-      return apiClient('/current_user/campaigns');
-    })
-    .then(async ({ store }) => {
-      const creator = store
-        .findAll('user')
-        .map((user) => user.serialize().data);
-      const campaigns = store
-        .findAll('campaign')
-        .map((campaign) => campaign.serialize().data);
 
-      const { id } = creator[0];
-      userDetails = {
-        ...userDetails,
-        id,
-      };
+  try {
+    userDetails = await oAuthClient.getTokens(
+      code,
+      process.env.PATREON_REDIRECT_URL
+    );
+    bot.sendMessage(
+      msgId,
+      'Congragulations, You have been verified successfully \u{2705}.\nWe are now fetching your patreon details.'
+    );
+    res.redirect('/api/current_user');
+  } catch (err) {
+    console.log('err in authentication', err);
+    res.redirect('/api/fallback');
+    bot.sendMessage(
+      msgId,
+      'Something went wrong while verifying your patreon account \u{1F62B} Please try again'
+    );
+  }
+});
 
-      await InsertUser(userDetails);
+// fetch user's info, campagins and pledges
+app.get('/api/current_user', async (req, res) => {
+  try {
+    const apiClient = patreon.patreon(userDetails.access_token);
+    const { store } = await apiClient('/current_user');
+    const [creator, campaigns, pledge] = getUserData(store);
 
-      await bot.sendMessage(msgId, 'Congragulations, You have been verified');
+    userPatreonDetails = {
+      ...creator,
+      // check below
+      campaigns,
+      pledge,
+    };
 
-      await bot.sendMessage(
-        msgId,
-        `Great. We have found following campaigns assosiated with your account. Please choose any one campaign from the following list:
-        ${campaigns.map(
-          (camp) =>
-            `<a href="${camp.attributes.cover_photo_url}" alt="${camp.attributes.name}"><b>${camp.attributes.name}</b></a>\n`
-        )}`,
-        {
-          parse_mode: 'HTML',
-          disable_web_page_preview: true,
-        }
-      );
-      res.redirect('/api/success');
-    })
-    .catch((err) => {
-      console.log('err in currrent user', err);
-      bot.sendMessage(msgId, 'Something went wrong. Please try again ');
-      res.redirect('/api/fallback');
-    });
+    userDetails = {
+      ...userDetails,
+      id: userPatreonDetails.creator.id,
+    };
+
+    console.log('user', userPatreonDetails);
+
+    bot.sendMessage(msgId, 'Patreon details fetched successfully \u{2705}.');
+    await InsertUser(userDetails);
+    res.redirect('/api/verified');
+  } catch (err) {
+    console.log('err in fetching current_user', err.response);
+    res.redirect('/api/fallback');
+    bot.sendMessage(msgId, 'Something went wrong \u{1F62B} Please try again');
+  }
 });
 
 // success page
-app.get('/api/success', successPage);
+app.get('/api/verified', verifiedPage);
 
 // fallback page
 app.get('/api/fallback', fallbackPage);
