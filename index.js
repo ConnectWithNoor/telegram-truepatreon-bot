@@ -12,6 +12,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const app = require('express')();
 const patreon = require('patreon');
 const mongoose = require('mongoose');
+const axios = require('axios');
 
 const { loginUrl, InsertUser, getUserData } = require('./util/utilities');
 const { verifiedPage, fallbackPage } = require('./routes/index');
@@ -24,6 +25,17 @@ const oAuthClient = patreon.oauth(
   process.env.PATREON_CLINET_ID,
   process.env.PATREON_CLIENT_SECRET
 );
+
+const sendHTTPRequest = (method, url, data) => {
+  return fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  }).then((res) => {
+    return res;
+  });
+};
 
 // Bot
 const bot = new TelegramBot(process.env.BOT_TOEKN, { polling: true });
@@ -45,7 +57,8 @@ Please press the button below to get started and verify your Patreon account`
         [
           {
             text: 'Click here to verify',
-            url: `https://www.patreon.com/oauth2/authorize?response_type=code&client_id=${process.env.PATREON_CLINET_ID}&redirect_uri=${process.env.PATREON_REDIRECT_URL}`,
+            url: loginUrl,
+            // url: `https://www.patreon.com/oauth2/authorize?response_type=code&client_id=${process.env.PATREON_CLINET_ID}&redirect_uri=${process.env.PATREON_REDIRECT_URL}`,
           },
         ],
       ],
@@ -60,10 +73,17 @@ app.get('/api/redirect-url', async (req, res) => {
   const { code } = req.query;
 
   try {
-    userDetails = await oAuthClient.getTokens(
-      code,
-      process.env.PATREON_REDIRECT_URL
+    // userDetails = await oAuthClient.getTokens(
+    //   code,
+    //   process.env.PATREON_REDIRECT_URL
+    // );
+
+    const getRes = await sendHTTPRequest(
+      'POST',
+      `https://www.patreon.com/api/oauth2/token?code=${code}&grant_type=authorization_code&client_id=${process.env.PATREON_CLINET_ID}&client_secret=${process.env.PATREON_CLIENT_SECRET}&redirect_uri=${process.env.PATREON_REDIRECT_URL}`
     );
+    userDetails = await getRes.json();
+
     bot.sendMessage(
       msgId,
       'Congragulations, You have been verified successfully \u{2705}.\nWe are now fetching your patreon details.'
