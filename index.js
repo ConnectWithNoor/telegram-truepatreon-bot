@@ -21,16 +21,16 @@ app.use(bodyparser.json());
 app.use(bodyparser.urlencoded({ extended: true }));
 
 const oAuthClient = patreon.oauth(
-  process.env.PATREON_CLINET_ID_NOOR,
-  process.env.PATREON_CLIENT_SECRET_NOOR
+  process.env.PATREON_CLINET_ID,
+  process.env.PATREON_CLIENT_SECRET
 );
 
 // Bot
 const bot = new TelegramBot(process.env.BOT_TOEKN, { polling: true });
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start/, async (msg) => {
   msgId = msg.chat.id;
 
-  bot.sendMessage(
+  await bot.sendMessage(
     msgId,
     `Welcome ${msg.chat.first_name}, 
 
@@ -39,13 +39,13 @@ with @TruePatreonbot you can get access to private patreon-only Telegram communi
 Please press the button below to get started and verify your Patreon account`
   );
 
-  bot.sendMessage(msgId, `\u{1F447}`, {
+  await bot.sendMessage(msgId, `\u{1F447}`, {
     reply_markup: {
       inline_keyboard: [
         [
           {
             text: 'Click here to verify',
-            url: loginUrl,
+            url: `https://www.patreon.com/oauth2/authorize?response_type=code&client_id=${process.env.PATREON_CLINET_ID}&redirect_uri=${process.env.PATREON_REDIRECT_URL}`,
           },
         ],
       ],
@@ -83,30 +83,30 @@ app.get('/api/redirect-url', async (req, res) => {
 app.get('/api/current_user', async (req, res) => {
   try {
     const apiClient = patreon.patreon(userDetails.access_token);
-    const { store } = await apiClient('/current_user');
-    const [creator, campaigns, pledge] = getUserData(store);
+    const { store, rawJson } = await apiClient('/current_user');
+    const [user, campaigns, pledges] = getUserData(store, rawJson);
 
     userPatreonDetails = {
-      ...creator,
-      // check below
+      user,
       campaigns,
-      pledge,
+      pledges,
     };
 
     userDetails = {
       ...userDetails,
-      id: userPatreonDetails.creator.id,
+      id: userPatreonDetails.user.id,
     };
 
-    console.log('user', userPatreonDetails);
-
-    bot.sendMessage(msgId, 'Patreon details fetched successfully \u{2705}.');
     await InsertUser(userDetails);
+    bot.sendMessage(msgId, 'Patreon details fetched successfully \u{2705}.');
     res.redirect('/api/verified');
   } catch (err) {
     console.log('err in fetching current_user', err.response);
     res.redirect('/api/fallback');
-    bot.sendMessage(msgId, 'Something went wrong \u{1F62B} Please try again');
+    bot.sendMessage(
+      msgId,
+      'Something went wrong while fetching your petreon data \u{1F62B} Please try again'
+    );
   }
 });
 
